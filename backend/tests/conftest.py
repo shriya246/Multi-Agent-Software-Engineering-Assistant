@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.core.config import reset_settings_cache
@@ -17,7 +18,12 @@ def clear_settings_cache() -> Iterator[None]:
 
 
 @pytest.fixture()
-def client() -> Iterator[TestClient]:
-    app = create_app()
+def app() -> Iterator[FastAPI]:
+    application = create_app()
+    yield application
+
+
+@pytest.fixture()
+def client(app) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client

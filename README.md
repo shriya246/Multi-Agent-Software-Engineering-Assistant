@@ -2,7 +2,7 @@
 
 CodePilot is a self-hosted Multi-Agent Software Engineering Assistant for analyzing software repositories, answering codebase questions, diagnosing bugs, proposing patches, generating tests, reviewing changes, and producing documentation.
 
-The project is designed as an engineering-quality portfolio system with local, open-source runtime dependencies by default. Phase 1 adds the reproducible local development skeleton only; no authentication flows or database domain tables have been implemented yet.
+The project is designed as an engineering-quality portfolio system with local, open-source runtime dependencies by default. Phase 1 added the reproducible local development skeleton. Phase 2 adds the backend foundation: async database access, Alembic, Redis, Celery, dependency health checks, and API conventions.
 
 ## Prerequisites
 
@@ -29,6 +29,7 @@ Optional but recommended:
 2. Install backend dependencies with `python -m uv sync --project backend --group dev`.
 3. Install frontend dependencies with `cd frontend && npm install`.
 4. Start the development stack with `docker compose up --build`.
+5. Run `make migrate` after PostgreSQL is healthy to create the minimal system metadata table.
 
 ## Docker Installation
 
@@ -77,15 +78,41 @@ Key environment variables live in `.env.example`:
 
 - `CODEPILOT_ENVIRONMENT`
 - `CODEPILOT_SECRET_KEY`
+- `CODEPILOT_TRUSTED_HOSTS`
+- `CODEPILOT_MAX_REQUEST_SIZE_BYTES`
 - `CODEPILOT_DATABASE_URL`
+- `CODEPILOT_DATABASE_POOL_SIZE`
+- `CODEPILOT_DATABASE_MAX_OVERFLOW`
+- `CODEPILOT_DATABASE_POOL_TIMEOUT_SECONDS`
+- `CODEPILOT_DATABASE_CONNECT_TIMEOUT_SECONDS`
+- `CODEPILOT_DATABASE_STATEMENT_TIMEOUT_MS`
 - `CODEPILOT_REDIS_URL`
+- `CODEPILOT_REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS`
+- `CODEPILOT_REDIS_SOCKET_TIMEOUT_SECONDS`
+- `CODEPILOT_REDIS_HEALTH_TIMEOUT_SECONDS`
 - `CODEPILOT_QDRANT_URL`
+- `CODEPILOT_QDRANT_HEALTH_TIMEOUT_SECONDS`
 - `CODEPILOT_OLLAMA_BASE_URL`
+- `CODEPILOT_OLLAMA_HEALTH_TIMEOUT_SECONDS`
 - `CODEPILOT_OLLAMA_CHAT_MODEL`
 - `CODEPILOT_OLLAMA_EMBEDDING_MODEL`
+- `CODEPILOT_CELERY_TASK_TIME_LIMIT_SECONDS`
+- `CODEPILOT_CELERY_TASK_SOFT_TIME_LIMIT_SECONDS`
+- `CODEPILOT_CELERY_RESULT_EXPIRES_SECONDS`
+- `CODEPILOT_CELERY_WORKER_PREFETCH_MULTIPLIER`
+- `CODEPILOT_IDEMPOTENCY_TTL_SECONDS`
 - `VITE_API_BASE_URL`
 
 The API starts without requiring an Ollama model to be installed. Readiness reports model availability separately rather than crashing the service.
+
+Phase 2 backend capabilities also include:
+
+- Async SQLAlchemy sessions and transaction helpers
+- Alembic upgrade and downgrade support
+- Redis JSON helpers and namespaced idempotency reservations
+- Celery JSON-only tasks and a no-op cleanup schedule
+- Standardized API error envelopes and pagination schemas
+- Request-size limits and trusted-host checks
 
 ## Service URLs
 
@@ -115,6 +142,7 @@ Development defaults:
 - [Roadmap](docs/plans/roadmap.md)
 - [Phase 0 plan](docs/plans/phase-00.md)
 - [Phase 1 plan](docs/plans/phase-01.md)
+- [Phase 2 plan](docs/plans/phase-02.md)
 
 ## License
 

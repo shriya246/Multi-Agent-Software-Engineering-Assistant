@@ -4,7 +4,7 @@ import os
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, ValidationError, field_validator
+from pydantic import Field, field_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -32,24 +32,45 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"]
     )
+    trusted_hosts: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "api", "frontend"]
+    )
+    max_request_size_bytes: int = 1_048_576
     database_url: str = "postgresql+asyncpg://codepilot:codepilot@postgres:5432/codepilot"
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_timeout_seconds: int = 30
+    database_connect_timeout_seconds: int = 5
+    database_statement_timeout_ms: int = 10_000
+    database_health_timeout_seconds: float = 2.0
     redis_url: str = "redis://redis:6379/0"
+    redis_socket_connect_timeout_seconds: float = 2.0
+    redis_socket_timeout_seconds: float = 2.0
+    redis_health_timeout_seconds: float = 2.0
+    redis_health_check_interval_seconds: int = 30
     qdrant_url: str = "http://qdrant:6333"
+    qdrant_health_timeout_seconds: float = 2.0
     ollama_base_url: str = "http://ollama:11434"
     ollama_chat_model: str = "qwen2.5-coder:3b"
     ollama_embedding_model: str = "nomic-embed-text"
+    ollama_health_timeout_seconds: float = 2.0
     ollama_model_required: bool = False
+    celery_task_time_limit_seconds: int = 600
+    celery_task_soft_time_limit_seconds: int = 540
+    celery_result_expires_seconds: int = 3600
+    celery_worker_prefetch_multiplier: int = 1
+    idempotency_ttl_seconds: int = 86_400
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", "trusted_hosts", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: object) -> list[str]:
+    def parse_string_lists(cls, value: object) -> list[str]:
         if value in (None, ""):
             return []
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         if isinstance(value, list):
             return [str(item).strip() for item in value if str(item).strip()]
-        raise TypeError("cors_origins must be a string or list of strings")
+        raise TypeError("expected a comma-separated string or a list of strings")
 
     def validate_production_requirements(self) -> None:
         if self.environment != "production":
@@ -67,6 +88,8 @@ class Settings(BaseSettings):
         if missing:
             joined = ", ".join(sorted(missing))
             raise RuntimeError(f"Missing production settings: {joined}")
+        if not self.trusted_hosts:
+            raise RuntimeError("Missing production settings: trusted_hosts")
 
     @classmethod
     def settings_customise_sources(
@@ -93,7 +116,7 @@ class CommaSeparatedEnvSettingsSource(EnvSettingsSource):
         value: object,
         value_is_complex: bool,
     ) -> object:
-        if field_name == "cors_origins" and isinstance(value, str):
+        if field_name in {"cors_origins", "trusted_hosts"} and isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return super().prepare_field_value(field_name, field, value, value_is_complex)
 
@@ -128,7 +151,4 @@ def build_settings_from_env(**overrides: str) -> Settings:
 
 
 def settings_from_payload(payload: dict[str, object]) -> Settings:
-    try:
-        return Settings.model_validate(payload)
-    except ValidationError as exc:  # pragma: no cover - thin wrapper
-        raise exc
+    return Settings.model_validate(payload)

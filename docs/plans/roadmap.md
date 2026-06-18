@@ -10,7 +10,7 @@ Create the planned directory structure, backend and frontend package manifests, 
 
 ## Phase 2: Backend Foundation
 
-Implement FastAPI application setup, pydantic-settings configuration, async SQLAlchemy, Alembic, PostgreSQL connectivity, health and readiness endpoints, structured logging, correlation IDs, standard error responses, and authentication foundation.
+Implement FastAPI application setup, pydantic-settings configuration, async SQLAlchemy, Alembic, PostgreSQL connectivity, Redis, Celery, health and readiness endpoints, structured logging, correlation IDs, standard error responses, and idempotency foundations.
 
 ## Phase 3: Repository Registration And Secure Cloning
 

@@ -4,6 +4,20 @@ This document defines the planned HTTP surface for `v1`. The API is owner-scoped
 
 All endpoints return standard error responses, use correlation IDs, and avoid leaking internal stack traces. Long-running work returns durable run, job, or execution identifiers and emits events.
 
+## API Conventions
+
+- Standard error envelope shape: `{ "error": { "code", "message", "correlation_id", "details" } }`
+- Pagination uses typed limit/offset parameters and bounded defaults.
+- Mutation endpoints that launch long jobs require idempotency keys in the service layer.
+- Request sizes are bounded before request bodies are processed.
+- Production deployments must configure trusted hosts and secure response headers.
+
+### GET /api/v1/version
+
+Returns the API version and runtime environment.
+
+Planned response fields: version, environment.
+
 ## Authentication
 
 ### POST /api/v1/auth/register

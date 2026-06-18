@@ -20,12 +20,12 @@ The system is designed for local or trusted single-tenant deployment without pai
 ## Component Responsibilities
 
 - React frontend: authenticated dashboard, repository management, streamed run progress, artifacts, patch review, and approval workflows.
-- FastAPI API: authentication, authorization, request validation, run orchestration, event streaming, and thin HTTP routes.
-- Service layer: business rules for repositories, ingestion, retrieval, runs, patches, artifacts, audits, and approvals.
+- FastAPI API: request validation, response shaping, exception mapping, dependency injection, run orchestration, event streaming, and thin HTTP routes.
+- Service layer: business rules for repositories, ingestion, retrieval, runs, patches, artifacts, audits, approvals, database health, Redis health, and idempotency reservations.
 - Repository classes: database access boundaries for PostgreSQL models.
-- Celery workers: long-running ingestion, indexing, agent runs, sandbox execution, and artifact creation.
-- PostgreSQL: source of truth for users, repositories, revisions, files, symbols, runs, events, artifacts, patches, test executions, refresh tokens, and audit logs.
-- Redis: Celery broker and result backend.
+- Celery workers: long-running ingestion, indexing, agent runs, sandbox execution, artifact creation, and scheduled maintenance jobs.
+- PostgreSQL: source of truth for durable application state, migration metadata, repository records, revisions, files, symbols, runs, events, artifacts, patches, test executions, refresh tokens, audit logs, and system metadata.
+- Redis: Celery broker, result backend, idempotency reservations, and transient queue data.
 - Qdrant: vector index for semantic code retrieval.
 - Ollama provider: local chat and embedding inference behind provider interfaces.
 - Tree-sitter parser: syntax-aware parsing and symbol extraction.
@@ -81,7 +81,7 @@ Each node receives bounded context, treats repository content as untrusted data,
 
 - PostgreSQL is the durable source of truth.
 - Qdrant stores embeddings and vector payload metadata, not authorization truth.
-- Redis stores transient queue and result data only.
+- Redis stores transient queue, result, and idempotency reservation data only.
 - Object-like artifacts may initially live in PostgreSQL or a local artifact store, but metadata and ownership live in PostgreSQL.
 - Cloned repositories live in controlled worker storage with cleanup policies and must never be treated as durable truth.
 - Logs and traces must exclude secrets, JWTs, authorization headers, passwords, and raw source-code contents.

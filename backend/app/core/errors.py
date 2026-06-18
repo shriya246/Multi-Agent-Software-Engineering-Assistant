@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -8,6 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.exceptions import AppError
 from app.core.middleware import get_correlation_id
 from app.schemas.common import ErrorEnvelope, ErrorPayload
 
@@ -32,7 +34,40 @@ def build_error_envelope(
     return JSONResponse(status_code=status_code, content=payload.model_dump(mode="json"))
 
 
+def _format_validation_errors(
+    errors: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    formatted: list[dict[str, Any]] = []
+    for error in errors:
+        loc = error.get("loc", ())
+        if isinstance(loc, tuple):
+            location = ".".join(str(item) for item in loc)
+        else:
+            location = str(loc)
+        formatted.append(
+            {
+                "location": location,
+                "message": str(error.get("msg", "Invalid value")),
+                "type": str(error.get("type", "validation_error")),
+            }
+        )
+    return formatted
+
+
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(AppError)
+    async def app_exception_handler(request: Request, exc: AppError) -> JSONResponse:
+        logger.info(
+            "app_exception",
+            extra={"code": exc.code, "status_code": exc.status_code, "path": request.url.path},
+        )
+        return build_error_envelope(
+            code=exc.code,
+            message=exc.message,
+            details=exc.details,
+            status_code=exc.status_code,
+        )
+
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         logger.info(
@@ -54,7 +89,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return build_error_envelope(
             code="validation_error",
             message="Request validation failed",
-            details=exc.errors(),
+            details=_format_validation_errors(exc.errors()),
             status_code=422,
         )
 

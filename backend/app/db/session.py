@@ -2,20 +2,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy.ext.asyncio import (
-    AsyncEngine,
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
+from fastapi import Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
-
-settings = get_settings()
-engine: AsyncEngine = create_async_engine(settings.database_url, future=True)
-session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+from app.core.container import AppContainer
 
 
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async with session_factory() as session:
+async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
+    container = request.app.state.container
+    assert isinstance(container, AppContainer)
+    async with container.database.session() as session:
         yield session
