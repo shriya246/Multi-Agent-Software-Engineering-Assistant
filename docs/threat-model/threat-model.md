@@ -1,0 +1,43 @@
+# Threat Model
+
+CodePilot treats repository contents, model output, generated patches, generated tests, logs, and sandbox output as untrusted. This document uses a practical STRIDE-style analysis for the initial local or trusted single-tenant release.
+
+## Assumptions
+
+- v1 supports public `https://github.com/...` repositories only.
+- Private repositories and write-back integrations are out of scope.
+- The API, worker, PostgreSQL, Redis, Qdrant, Ollama, and observability services run on a private deployment network.
+- Docker sandboxing is used for approved test execution, but it is not a hardened microVM boundary.
+- Human approval is required before generated patches are applied or generated code is executed.
+
+## Threats
+
+| Threat | Asset | Entry Point | Risk | Mitigation | Residual Risk | Test Or Verification Strategy |
+| --- | --- | --- | --- | --- | --- | --- |
+| Malicious Git URL | Worker host, network, repository records | Repository creation API | Spoofing or tampering via unsupported protocols, local paths, credentials, or confusing hostnames | Accept only HTTPS URLs with normalized host `github.com`; reject credentials, fragments, non-standard schemes, local paths, and redirects that leave scope | GitHub account names can still be deceptive | Unit tests for URL parser, allowlist checks, redirect handling, and rejected examples |
+| SSRF | Internal network and metadata endpoints | Clone and repository fetch operations | Worker could connect to internal services | Restrict v1 to normalized `github.com`; use Git command arguments, timeouts, and outbound network policy where available | DNS or platform misconfiguration can weaken network controls | Integration test with disallowed hosts; deployment review of egress controls |
+| Large repository denial of service | CPU, memory, disk, queue capacity | Clone and indexing jobs | Oversized repositories exhaust resources | Shallow clone, max file count, max total bytes, max file size, clone timeout, parse timeout, queue limits, cleanup policies | A repository can still consume allowed quota | Fixture tests for limits; load tests with synthetic large repositories |
+| Zip bomb or Git object abuse | Disk, CPU, Git process | Git clone and object checkout | Crafted Git history or objects cause resource exhaustion | Shallow clone, disable submodules, clone timeout, disk quotas, process limits, cleanup on failure | Git implementation vulnerabilities remain possible | Sandbox clone tests; dependency update monitoring; Git version scanning |
+| Path traversal | Filesystem, artifacts, patch application | Repository paths, generated artifacts, patch paths | Files outside controlled workspace are read or written | Normalize paths, reject absolute paths and `..`, resolve within workspace, validate patch target paths | Platform-specific path edge cases | Unit tests for Windows and POSIX path cases |
+| Symlink attacks | Host filesystem and clone workspace | Repository checkout | Symlinks point outside repository or into sensitive files | Reject unsafe symlinks during ingestion; never follow symlinks outside clone root | Race conditions if workspace permissions are weak | Symlink fixture repositories; resolved-path assertions |
+| Malicious submodules | Worker host and network | Git metadata | Submodules fetch unexpected code or hosts | Disable and reject submodules by default | Future private repo support may need new controls | Fixture with submodule metadata; clone command inspection |
+| Prompt injection in source code | Agent behavior, user trust, generated output | README, comments, source files, docs, tests, logs | Repository text attempts to override system instructions or exfiltrate data | Frame repository content as untrusted quoted context; use bounded prompts; validate structured output; no unrestricted tools | Models may still be influenced by adversarial text | Prompt-injection evaluation fixtures; output schema tests |
+| Secret exposure | User secrets, repository secrets, logs, traces | Repository files, env vars, logs, model context | Secrets leak to logs, artifacts, model prompts, or other users | Do not log source contents or auth headers; redact known secret patterns; scope artifacts by owner; avoid sending environment secrets to models | Public repositories may contain committed secrets | Log redaction tests; artifact access tests; secret scanning fixtures |
+| Malicious dependency installation | Sandbox and network | Test execution | Tests install or run malicious dependencies | No test execution without approval; run only in non-root no-network Docker sandbox with resource limits; avoid host execution | Existing cached packages or base images can contain risk | Sandbox integration tests verifying no network and non-root user |
+| Container breakout | Host filesystem and Docker daemon | Sandbox execution | Malicious code escapes container | No Docker socket mount, non-root user, no privileged mode, read-only mounts where practical, resource limits, temporary workspace, documented boundary limits | Kernel or runtime vulnerabilities may permit escape | Runtime configuration tests; security review; dependency patch cadence |
+| Resource exhaustion | API, workers, Redis, PostgreSQL, Qdrant, Ollama | Requests, jobs, parsing, retrieval, generation, sandbox | CPU, memory, queue, token, or disk exhaustion | Rate limits, timeouts, quotas, bounded context, max events, max logs, worker concurrency limits | Local operators can misconfigure limits | Unit and integration tests for timeout and quota enforcement |
+| Unauthorized repository access | Repository data and artifacts | API endpoints | User reads or mutates another user's repository | Owner-scoped queries, authorization dependencies, database constraints, audit logs | Bugs in future organization tenancy could widen scope | Authorization tests for every repository, run, patch, and artifact endpoint |
+| Cross-user data leakage | User data, model context, vector payloads | Retrieval and artifact APIs | Context or embeddings from one user appear in another user's run | Include owner and repository filters in PostgreSQL and Qdrant payloads; enforce owner checks before retrieval | Qdrant filter mistakes can leak snippets | Retrieval tests with two owners; artifact access tests |
+| Patch path traversal | Workspace and repository files | Generated unified diffs | Patch writes outside repository or changes disallowed files | Parse and validate diffs; reject absolute paths, `..`, symlink targets, oversized patches, binary surprises, and unsupported operations | Diff parser bugs remain possible | Patch validation unit tests with malicious paths |
+| Command injection | Host and sandbox | Git commands, test commands, generated commands | Untrusted input modifies shell command behavior | Use argument arrays; `shell=False`; allowlisted commands; no host execution of repository code; explicit approval for sandbox commands | Future feature expansion can reintroduce shell usage | Static checks for `shell=True`; command builder unit tests |
+| Log injection | Logs, audit records, operator UI | Repository names, paths, model output, sandbox logs | Forged log lines or control characters mislead operators | Structured JSON logging; escape control characters; bound log sizes; never log secrets or raw source blobs | Operators may export logs to weaker systems | Logging tests with newline and control-character payloads |
+| Model hallucination | User decisions, patches, documentation | Agent output | Incorrect citations, invented files, unsafe patches, or false confidence | Require evidence and file references; validate citations; validate structured output; separate analysis from approval; label generated output | Model can still make plausible mistakes | Evaluation fixtures; citation existence tests; human review |
+| Supply-chain compromise | Runtime integrity and developer machines | Dependencies, base images, GitHub Actions | Malicious package or image compromises system | Pin dependencies and Docker images; use lock files; prefer official images; run CI checks; review dependency updates | Upstream compromise can still occur | Dependency scanning, lockfile review, image provenance checks |
+
+## Verification Themes
+
+- Security unit tests for URL, path, diff, command, and authorization validators.
+- Integration tests for repository ingestion limits and unsafe repository fixtures.
+- Sandbox tests for no network, non-root user, resource limits, and bounded logs.
+- Agent evaluation fixtures for prompt injection, hallucinated citations, and schema failures.
+- Observability tests for redaction, correlation IDs, and structured logs.

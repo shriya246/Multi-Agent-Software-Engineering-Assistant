@@ -1,0 +1,141 @@
+name: codepilot
+
+services:
+  api:
+    build:
+      context: ./backend
+      target: production
+    environment:
+      CODEPILOT_ENVIRONMENT: ${CODEPILOT_ENVIRONMENT:-production}
+      CODEPILOT_APP_NAME: ${CODEPILOT_APP_NAME:-CodePilot}
+      CODEPILOT_APP_VERSION: ${CODEPILOT_APP_VERSION:-0.1.0}
+      CODEPILOT_SECRET_KEY: ${CODEPILOT_SECRET_KEY:-change-me-in-production}
+      CODEPILOT_CORS_ORIGINS: ${CODEPILOT_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CODEPILOT_DATABASE_URL: ${CODEPILOT_DATABASE_URL:-postgresql+asyncpg://codepilot:codepilot@postgres:5432/codepilot}
+      CODEPILOT_REDIS_URL: ${CODEPILOT_REDIS_URL:-redis://redis:6379/0}
+      CODEPILOT_QDRANT_URL: ${CODEPILOT_QDRANT_URL:-http://qdrant:6333}
+      CODEPILOT_OLLAMA_BASE_URL: ${CODEPILOT_OLLAMA_BASE_URL:-http://ollama:11434}
+      CODEPILOT_OLLAMA_CHAT_MODEL: ${CODEPILOT_OLLAMA_CHAT_MODEL:-qwen2.5-coder:3b}
+      CODEPILOT_OLLAMA_EMBEDDING_MODEL: ${CODEPILOT_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - public
+      - private
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      target: production
+    environment:
+      CODEPILOT_ENVIRONMENT: ${CODEPILOT_ENVIRONMENT:-production}
+      CODEPILOT_APP_NAME: ${CODEPILOT_APP_NAME:-CodePilot}
+      CODEPILOT_APP_VERSION: ${CODEPILOT_APP_VERSION:-0.1.0}
+      CODEPILOT_SECRET_KEY: ${CODEPILOT_SECRET_KEY:-change-me-in-production}
+      CODEPILOT_CORS_ORIGINS: ${CODEPILOT_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      CODEPILOT_DATABASE_URL: ${CODEPILOT_DATABASE_URL:-postgresql+asyncpg://codepilot:codepilot@postgres:5432/codepilot}
+      CODEPILOT_REDIS_URL: ${CODEPILOT_REDIS_URL:-redis://redis:6379/0}
+      CODEPILOT_QDRANT_URL: ${CODEPILOT_QDRANT_URL:-http://qdrant:6333}
+      CODEPILOT_OLLAMA_BASE_URL: ${CODEPILOT_OLLAMA_BASE_URL:-http://ollama:11434}
+      CODEPILOT_OLLAMA_CHAT_MODEL: ${CODEPILOT_OLLAMA_CHAT_MODEL:-qwen2.5-coder:3b}
+      CODEPILOT_OLLAMA_EMBEDDING_MODEL: ${CODEPILOT_OLLAMA_EMBEDDING_MODEL:-nomic-embed-text}
+    command: ["python", "-m", "celery", "-A", "app.workers.celery_app.celery_app", "worker", "--loglevel=info"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - private
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - public
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: codepilot
+      POSTGRES_USER: codepilot
+      POSTGRES_PASSWORD: codepilot
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codepilot -d codepilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4.1-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    volumes:
+      - redis-data:/data
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+  qdrant:
+    image: qdrant/qdrant:v1.11.5
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:6333/healthz | grep -q ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ollama:
+    image: ollama/ollama:0.11.5
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:11434/api/tags >/dev/null"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  ollama-data:
+
+networks:
+  public:
+  private:
+    internal: true

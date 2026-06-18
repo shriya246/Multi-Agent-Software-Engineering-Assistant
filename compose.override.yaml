@@ -1,0 +1,69 @@
+services:
+  api:
+    ports:
+      - "127.0.0.1:8000:8000"
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+      - repo-workspaces:/repo-workspaces
+    environment:
+      CODEPILOT_ENVIRONMENT: development
+      CODEPILOT_APP_NAME: CodePilot
+      CODEPILOT_APP_VERSION: 0.1.0
+      CODEPILOT_SECRET_KEY: development-only-secret
+      CODEPILOT_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CODEPILOT_DATABASE_URL: postgresql+asyncpg://codepilot:codepilot@postgres:5432/codepilot
+      CODEPILOT_REDIS_URL: redis://redis:6379/0
+      CODEPILOT_QDRANT_URL: http://qdrant:6333
+      CODEPILOT_OLLAMA_BASE_URL: http://ollama:11434
+      CODEPILOT_OLLAMA_CHAT_MODEL: qwen2.5-coder:3b
+      CODEPILOT_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+
+  worker:
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+      - repo-workspaces:/repo-workspaces
+    environment:
+      CODEPILOT_ENVIRONMENT: development
+      CODEPILOT_APP_NAME: CodePilot
+      CODEPILOT_APP_VERSION: 0.1.0
+      CODEPILOT_SECRET_KEY: development-only-secret
+      CODEPILOT_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CODEPILOT_DATABASE_URL: postgresql+asyncpg://codepilot:codepilot@postgres:5432/codepilot
+      CODEPILOT_REDIS_URL: redis://redis:6379/0
+      CODEPILOT_QDRANT_URL: http://qdrant:6333
+      CODEPILOT_OLLAMA_BASE_URL: http://ollama:11434
+      CODEPILOT_OLLAMA_CHAT_MODEL: qwen2.5-coder:3b
+      CODEPILOT_OLLAMA_EMBEDDING_MODEL: nomic-embed-text
+
+  frontend:
+    ports:
+      - "127.0.0.1:5173:5173"
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+    environment:
+      VITE_API_BASE_URL: /api/v1
+
+  postgres:
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  qdrant:
+    ports:
+      - "127.0.0.1:6333:6333"
+
+  ollama:
+    ports:
+      - "127.0.0.1:11434:11434"
+
+volumes:
+  repo-workspaces:

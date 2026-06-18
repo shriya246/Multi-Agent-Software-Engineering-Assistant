@@ -1,0 +1,8 @@
+# Workspace-local sample Codex configuration for this project.
+# This file documents the intended posture without changing global Codex config.
+
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[safety]
+dangerous_sandbox_bypass = false
