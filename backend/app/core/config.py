@@ -60,6 +60,19 @@ class Settings(BaseSettings):
     celery_result_expires_seconds: int = 3600
     celery_worker_prefetch_multiplier: int = 1
     idempotency_ttl_seconds: int = 86_400
+    access_token_ttl_seconds: int = 900
+    refresh_token_ttl_seconds: int = 2_592_000
+    access_token_algorithm: Literal["HS256", "HS384", "HS512"] = "HS256"
+    refresh_cookie_name: str = "codepilot_refresh"
+    csrf_cookie_name: str = "codepilot_csrf"
+    cookie_secure: bool = False
+    auth_rate_limit_window_seconds: int = 60
+    registration_rate_limit: int = 5
+    login_rate_limit: int = 10
+    refresh_rate_limit: int = 30
+    password_verify_rate_limit: int = 20
+    authenticated_api_rate_limit: int = 300
+    auth_rate_limit_fail_closed: bool = True
 
     @field_validator("cors_origins", "trusted_hosts", mode="before")
     @classmethod
@@ -90,6 +103,8 @@ class Settings(BaseSettings):
             raise RuntimeError(f"Missing production settings: {joined}")
         if not self.trusted_hosts:
             raise RuntimeError("Missing production settings: trusted_hosts")
+        if self.secret_key == "development-only-secret" or len(self.secret_key) < 32:
+            raise RuntimeError("CODEPILOT_SECRET_KEY must be a strong production secret")
 
     @classmethod
     def settings_customise_sources(

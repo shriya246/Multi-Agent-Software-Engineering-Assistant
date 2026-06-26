@@ -46,8 +46,10 @@ services:
       target: development
     volumes:
       - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
     environment:
       VITE_API_BASE_URL: /api/v1
+      VITE_API_PROXY_TARGET: http://api:8000
 
   postgres:
     ports:
@@ -67,3 +69,4 @@ services:
 
 volumes:
   repo-workspaces:
+  frontend-node-modules:

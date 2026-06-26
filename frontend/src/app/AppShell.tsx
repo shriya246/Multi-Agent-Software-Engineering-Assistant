@@ -1,13 +1,14 @@
 import { Link, NavLink } from "react-router-dom";
 import type { PropsWithChildren } from "react";
+import { useAuth } from "../auth/AuthContext";
 
 const navItems = [
   { label: "Home", to: "/" },
-  { label: "Login", to: "/login" },
   { label: "Repositories", to: "/repositories" }
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
+  const { user, logout } = useAuth();
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950/90 backdrop-blur">
@@ -35,6 +36,19 @@ export function AppShell({ children }: PropsWithChildren) {
                 {item.label}
               </NavLink>
             ))}
+            {user ? (
+              <div className="ml-2 flex items-center gap-2 border-l border-slate-700 pl-4">
+                <span className="text-sm text-slate-300">{user.display_name}</span>
+                <button className="button-secondary" type="button" onClick={() => void logout()}>
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <>
+                <NavLink className="nav-link" to="/login">Login</NavLink>
+                <NavLink className="nav-link" to="/register">Register</NavLink>
+              </>
+            )}
           </nav>
         </div>
       </header>

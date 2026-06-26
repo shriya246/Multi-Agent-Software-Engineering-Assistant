@@ -24,6 +24,20 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path, monkeypatch: pytest.Monke
     try:
         tables = inspect(engine).get_table_names()
         assert "system_metadata" in tables
+        assert {
+            "users",
+            "refresh_tokens",
+            "repositories",
+            "repository_revisions",
+            "repository_files",
+            "code_symbols",
+            "agent_runs",
+            "agent_run_events",
+            "artifacts",
+            "patches",
+            "test_executions",
+            "audit_logs",
+        }.issubset(tables)
     finally:
         engine.dispose()
 

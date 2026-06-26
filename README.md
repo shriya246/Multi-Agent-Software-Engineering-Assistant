@@ -2,7 +2,7 @@
 
 CodePilot is a self-hosted Multi-Agent Software Engineering Assistant for analyzing software repositories, answering codebase questions, diagnosing bugs, proposing patches, generating tests, reviewing changes, and producing documentation.
 
-The project is designed as an engineering-quality portfolio system with local, open-source runtime dependencies by default. Phase 1 added the reproducible local development skeleton. Phase 2 adds the backend foundation: async database access, Alembic, Redis, Celery, dependency health checks, and API conventions.
+The project is designed as an engineering-quality portfolio system with local, open-source runtime dependencies by default. Phases 1-3 provide the local development skeleton, backend foundation, owner-scoped domain schema, and secure local authentication with rotating refresh sessions.
 
 ## Prerequisites
 
@@ -143,6 +143,8 @@ Development defaults:
 - [Phase 0 plan](docs/plans/phase-00.md)
 - [Phase 1 plan](docs/plans/phase-01.md)
 - [Phase 2 plan](docs/plans/phase-02.md)
+- [Phase 3 plan](docs/plans/phase-03.md)
+- [Authentication and authorization](docs/architecture/authentication.md)
 
 ## License
 
