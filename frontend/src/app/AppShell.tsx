@@ -38,15 +38,25 @@ export function AppShell({ children }: PropsWithChildren) {
             ))}
             {user ? (
               <div className="ml-2 flex items-center gap-2 border-l border-slate-700 pl-4">
-                <span className="text-sm text-slate-300">{user.display_name}</span>
-                <button className="button-secondary" type="button" onClick={() => void logout()}>
+                <span className="text-sm text-slate-300">
+                  {user.display_name}
+                </span>
+                <button
+                  className="button-secondary"
+                  type="button"
+                  onClick={() => void logout()}
+                >
                   Logout
                 </button>
               </div>
             ) : (
               <>
-                <NavLink className="nav-link" to="/login">Login</NavLink>
-                <NavLink className="nav-link" to="/register">Register</NavLink>
+                <NavLink className="nav-link" to="/login">
+                  Login
+                </NavLink>
+                <NavLink className="nav-link" to="/register">
+                  Register
+                </NavLink>
               </>
             )}
           </nav>

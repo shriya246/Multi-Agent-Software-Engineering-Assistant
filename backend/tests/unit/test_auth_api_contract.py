@@ -25,3 +25,17 @@ def test_openapi_documents_auth_endpoints(client) -> None:
     paths = schema["paths"]
     for path in ("register", "login", "refresh", "logout", "logout-all", "me"):
         assert f"/api/v1/auth/{path}" in paths
+
+
+def test_openapi_documents_repository_ingestion_endpoints(client) -> None:
+    schema = client.get("/openapi.json").json()
+    paths = schema["paths"]
+    for path in (
+        "/api/v1/repositories",
+        "/api/v1/repositories/{repository_id}",
+        "/api/v1/repositories/{repository_id}/sync",
+        "/api/v1/repositories/{repository_id}/files",
+        "/api/v1/runs/{run_id}",
+        "/api/v1/runs/{run_id}/events",
+    ):
+        assert path in paths

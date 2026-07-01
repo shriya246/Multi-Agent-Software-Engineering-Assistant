@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DomainSchema(BaseModel):
@@ -24,6 +24,32 @@ class RepositorySchema(DomainSchema):
     deleted_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class RepositoryCreateRequest(BaseModel):
+    clone_url: str = Field(min_length=1, max_length=2048)
+    ref: str | None = Field(default=None, max_length=255)
+
+
+class RepositorySyncRequest(BaseModel):
+    ref: str | None = Field(default=None, max_length=255)
+
+
+class RepositoryListResponse(BaseModel):
+    repositories: list[RepositorySchema]
+
+
+class RepositoryCreateResponse(BaseModel):
+    repository: RepositorySchema
+    run: AgentRunSchema | None = None
+
+
+class RepositoryFileListResponse(BaseModel):
+    files: list[RepositoryFileSchema]
+
+
+class AgentRunEventListResponse(BaseModel):
+    events: list[AgentRunEventSchema]
 
 
 class RepositoryRevisionSchema(DomainSchema):

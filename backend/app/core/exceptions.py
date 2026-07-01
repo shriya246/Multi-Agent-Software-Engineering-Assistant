@@ -21,6 +21,11 @@ class NotFound(AppError):
         super().__init__("not_found", message, 404, details)
 
 
+class BadRequest(AppError):
+    def __init__(self, message: str = "Bad request", *, details: Any | None = None) -> None:
+        super().__init__("bad_request", message, 400, details)
+
+
 class Conflict(AppError):
     def __init__(self, message: str = "Conflict", *, details: Any | None = None) -> None:
         super().__init__("conflict", message, 409, details)

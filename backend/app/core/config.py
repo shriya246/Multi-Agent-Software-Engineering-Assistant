@@ -73,6 +73,17 @@ class Settings(BaseSettings):
     password_verify_rate_limit: int = 20
     authenticated_api_rate_limit: int = 300
     auth_rate_limit_fail_closed: bool = True
+    ingestion_workspace_root: str = "./.codepilot-workspaces"
+    ingestion_clone_timeout_seconds: int = 120
+    ingestion_process_output_bytes: int = 4096
+    ingestion_max_total_bytes: int = 100_000_000
+    ingestion_max_files: int = 25_000
+    ingestion_max_file_bytes: int = 1_000_000
+    ingestion_max_path_length: int = 512
+    ingestion_max_nesting_depth: int = 32
+    ingestion_max_text_lines: int = 20_000
+    ingestion_max_symlinks: int = 100
+    ingestion_failed_workspace_ttl_seconds: int = 86_400
 
     @field_validator("cors_origins", "trusted_hosts", mode="before")
     @classmethod

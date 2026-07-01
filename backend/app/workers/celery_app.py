@@ -42,6 +42,10 @@ def build_celery_app(settings: Settings) -> Celery:
 
     app.task(name="app.workers.tasks.ping")(tasks.ping)
     app.task(name="app.workers.tasks.cleanup_stale_artifacts")(tasks.cleanup_stale_artifacts)
+    app.task(name="app.workers.tasks.ingest_repository")(tasks.ingest_repository)
+    app.task(name="app.workers.tasks.cleanup_repository_workspace")(
+        tasks.cleanup_repository_workspace
+    )
     return app
 
 

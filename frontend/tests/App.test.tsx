@@ -9,7 +9,9 @@ beforeEach(() => {
     "fetch",
     vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ error: { code: "unauthorized", message: "Invalid session" } }),
+        JSON.stringify({
+          error: { code: "unauthorized", message: "Invalid session" }
+        }),
         { status: 401, headers: { "Content-Type": "application/json" } }
       )
     )
@@ -36,10 +38,14 @@ test("renders the home page shell", () => {
 
 test("redirects unauthenticated repository access to login", async () => {
   renderApp(["/repositories"]);
-  expect(await screen.findByRole("heading", { name: /login/i })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("heading", { name: /login/i })
+  ).toBeInTheDocument();
 });
 
 test("renders registration page", () => {
   renderApp(["/register"]);
-  expect(screen.getByRole("heading", { name: /create account/i })).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: /create account/i })
+  ).toBeInTheDocument();
 });

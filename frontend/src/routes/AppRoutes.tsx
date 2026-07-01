@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { HomePage } from "../pages/HomePage";
 import { LoginPage } from "../pages/LoginPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
+import { RepositoryDetailPage } from "../pages/RepositoryDetailPage";
 import { RepositoriesPage } from "../pages/RepositoriesPage";
 import { RegisterPage } from "../pages/RegisterPage";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
@@ -17,6 +18,14 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <RepositoriesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/repositories/:repositoryId"
+        element={
+          <ProtectedRoute>
+            <RepositoryDetailPage />
           </ProtectedRoute>
         }
       />
