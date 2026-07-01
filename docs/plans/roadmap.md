@@ -20,9 +20,9 @@ Implement local account registration and login, Argon2id password hashing, short
 
 Implement public GitHub URL validation, repository ownership, shallow clone jobs, clone limits, submodule and symlink rejection, file discovery, cleanup policies, and ingestion audit records.
 
-## Phase 5: Parsing, Symbols, And Lexical Search
+## Phase 5: AST Parsing, Symbol Extraction, And Code Indexing
 
-Add Tree-sitter parsing, supported-language detection, repository file persistence, symbol extraction, lexical search, file and symbol APIs, and parser fixtures.
+Add syntax-aware parsing, supported-language detection, repository file persistence, symbol extraction, code chunking, embedding-backed hybrid retrieval, file and symbol APIs, parser fixtures, and the repository index controls in the dashboard.
 
 ## Phase 6: Semantic Indexing And Retrieval
 

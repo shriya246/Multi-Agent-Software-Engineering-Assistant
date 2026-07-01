@@ -54,7 +54,7 @@ ALLOWED_STATE_TRANSITIONS: dict[str, set[str]] = {
     "scanning": {"ready_for_indexing", "failed", "deleting"},
     "ready_for_indexing": {"indexing", "ready", "deleting"},
     "indexing": {"ready", "failed", "deleting"},
-    "ready": {"queued", "deleting"},
+    "ready": {"queued", "indexing", "deleting"},
     "failed": {"queued", "deleting"},
     "deleting": {"deleted", "failed"},
     "deleted": set(),
@@ -188,6 +188,7 @@ class ScannedFile:
     line_count: int
     indexing_status: str
     excluded_reason: str | None
+    content: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -415,7 +416,9 @@ class IngestionService:
         safe_ref = validate_git_ref(ref)
         existing = await self.repositories.by_owner_url(owner_id, normalized.clone_url)
         if existing:
-            active_run = await self.runs.active_for_repository(existing.id)
+            active_run = await self.runs.active_for_repository(
+                existing.id, run_type=RUN_TYPE_INGESTION
+            )
             if active_run:
                 return existing, None
             if existing.status != "deleted":
@@ -448,7 +451,7 @@ class IngestionService:
         repository = await self.repositories.owned_by_id(owner_id, repository_id)
         if repository is None:
             raise NotFound()
-        if await self.runs.active_for_repository(repository.id):
+        if await self.runs.active_for_repository(repository.id, run_type=RUN_TYPE_INGESTION):
             raise Conflict("Repository ingestion is already running")
         safe_ref = validate_git_ref(ref) or repository.indexing_config.get("requested_ref")
         await self.transition(repository, "queued")
@@ -768,6 +771,7 @@ def _scan_file(path: Path, relative: str, settings: Settings) -> ScannedFile:
         line_count=line_count,
         indexing_status="accepted",
         excluded_reason=None,
+        content=text,
     )
 
 
@@ -780,6 +784,7 @@ def _excluded(relative: str, reason: str, *, size: int = 0) -> ScannedFile:
         line_count=0,
         indexing_status="excluded",
         excluded_reason=reason,
+        content=None,
     )
 
 

@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
             {"name": "meta", "description": "Version and service metadata."},
             {"name": "api-v1", "description": "Version 1 API surface."},
             {"name": "authentication", "description": "Local account and session management."},
+            {"name": "indexing", "description": "Code parsing, symbols, search, and indexing."},
         ],
         lifespan=lifespan,
         docs_url="/docs",

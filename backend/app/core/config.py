@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     ollama_embedding_model: str = "nomic-embed-text"
     ollama_health_timeout_seconds: float = 2.0
     ollama_model_required: bool = False
+    indexing_chunk_max_chars: int = 4_000
+    indexing_chunk_max_lines: int = 160
+    indexing_chunk_overlap_lines: int = 20
+    indexing_embedding_batch_size: int = 16
+    indexing_embedding_timeout_seconds: float = 30.0
+    indexing_embedding_dimensions: int = 768
+    indexing_top_k: int = 10
+    indexing_search_rate_limit: int = 60
     celery_task_time_limit_seconds: int = 600
     celery_task_soft_time_limit_seconds: int = 540
     celery_result_expires_seconds: int = 3600

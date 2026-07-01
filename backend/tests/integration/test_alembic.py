@@ -31,6 +31,8 @@ def test_alembic_upgrade_and_downgrade(tmp_path: Path, monkeypatch: pytest.Monke
             "repository_revisions",
             "repository_files",
             "code_symbols",
+            "code_chunks",
+            "repository_index_snapshots",
             "agent_runs",
             "agent_run_events",
             "artifacts",

@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.core.config import get_settings
 from app.services.database import DatabaseManager
+from app.services.indexing import IndexingService
 from app.services.ingestion import IngestionService
 
 
@@ -35,6 +36,27 @@ def ingest_repository(repository_id: str, run_id: str) -> dict[str, str]:
     return {"status": "completed", "repository_id": repository_id, "run_id": run_id}
 
 
+async def _index_repository(repository_id: UUID, run_id: UUID) -> None:
+    database = DatabaseManager(get_settings())
+    try:
+        async with database.session() as session:
+            try:
+                await IndexingService(session, database.settings).index_repository(
+                    repository_id, run_id
+                )
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+    finally:
+        await database.dispose()
+
+
+def index_repository(repository_id: str, run_id: str) -> dict[str, str]:
+    asyncio.run(_index_repository(UUID(repository_id), UUID(run_id)))
+    return {"status": "completed", "repository_id": repository_id, "run_id": run_id}
+
+
 async def _cleanup_repository_workspace(repository_id: UUID) -> None:
     database = DatabaseManager(get_settings())
     try:
@@ -42,6 +64,7 @@ async def _cleanup_repository_workspace(repository_id: UUID) -> None:
             await IngestionService(session, database.settings).delete_workspace_and_mark_deleted(
                 repository_id
             )
+            await IndexingService(session, database.settings).cleanup_repository(repository_id)
             await session.commit()
     finally:
         await database.dispose()

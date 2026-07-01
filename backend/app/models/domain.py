@@ -69,6 +69,9 @@ class Repository(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     latest_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("repository_revisions.id", ondelete="SET NULL", use_alter=True)
     )
+    latest_indexed_revision_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("repository_revisions.id", ondelete="SET NULL", use_alter=True)
+    )
     indexing_config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     deleted_by_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -108,12 +111,13 @@ class RepositoryFile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("repository_revisions.id", ondelete="CASCADE"), index=True
     )
     normalized_path: Mapped[str] = mapped_column(String(2048))
-    language: Mapped[str | None] = mapped_column(String(64), index=True)
+    language: Mapped[str | None] = mapped_column(String(64))
     size: Mapped[int] = mapped_column(BigInteger)
     content_hash: Mapped[str] = mapped_column(String(128))
     line_count: Mapped[int] = mapped_column(Integer)
     indexing_status: Mapped[str] = mapped_column(String(32), index=True)
     excluded_reason: Mapped[str | None] = mapped_column(String(255))
+    content: Mapped[str | None] = mapped_column(Text)
 
 
 class CodeSymbol(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -127,7 +131,7 @@ class CodeSymbol(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     file_id: Mapped[UUID] = mapped_column(
         ForeignKey("repository_files.id", ondelete="CASCADE"), index=True
     )
-    symbol_type: Mapped[str] = mapped_column(String(64), index=True)
+    symbol_type: Mapped[str] = mapped_column(String(64))
     name: Mapped[str] = mapped_column(String(512), index=True)
     qualified_name: Mapped[str] = mapped_column(String(2048))
     start_line: Mapped[int] = mapped_column(Integer)
@@ -137,6 +141,85 @@ class CodeSymbol(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("code_symbols.id", ondelete="SET NULL")
     )
     symbol_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class RepositoryIndexSnapshot(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "repository_index_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "repository_id",
+            "revision_id",
+            "embedding_model",
+            "embedding_dimensions",
+            name="uq_repository_index_snapshot_identity",
+        ),
+        Index("ix_repository_index_snapshots_repository_status", "repository_id", "status"),
+        Index("ix_repository_index_snapshots_owner_repository", "owner_id", "repository_id"),
+        Index("ix_repository_index_snapshots_revision", "revision_id"),
+    )
+
+    owner_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repository_revisions.id", ondelete="CASCADE"), index=True
+    )
+    commit_sha: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    parser_name: Mapped[str] = mapped_column(String(64))
+    embedding_provider: Mapped[str] = mapped_column(String(64))
+    embedding_model: Mapped[str] = mapped_column(String(255))
+    embedding_dimensions: Mapped[int] = mapped_column(Integer)
+    embedding_config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    statistics: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(64))
+    error_summary: Mapped[str | None] = mapped_column(String(1000))
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CodeChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "code_chunks"
+    __table_args__ = (
+        Index("ix_code_chunks_snapshot_path", "snapshot_id", "normalized_path"),
+        Index("ix_code_chunks_repository_revision", "repository_id", "revision_id"),
+        Index("ix_code_chunks_owner_repository", "owner_id", "repository_id"),
+        Index("ix_code_chunks_language", "language"),
+        Index("ix_code_chunks_symbol_type", "symbol_type"),
+    )
+
+    snapshot_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repository_index_snapshots.id", ondelete="CASCADE"), index=True
+    )
+    owner_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    repository_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repositories.id", ondelete="CASCADE"), index=True
+    )
+    revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repository_revisions.id", ondelete="CASCADE"), index=True
+    )
+    file_id: Mapped[UUID] = mapped_column(
+        ForeignKey("repository_files.id", ondelete="CASCADE"), index=True
+    )
+    commit_sha: Mapped[str] = mapped_column(String(64))
+    normalized_path: Mapped[str] = mapped_column(String(2048), index=True)
+    language: Mapped[str | None] = mapped_column(String(64))
+    symbol_name: Mapped[str | None] = mapped_column(String(512), index=True)
+    qualified_name: Mapped[str | None] = mapped_column(String(2048))
+    symbol_type: Mapped[str] = mapped_column(String(64))
+    start_line: Mapped[int] = mapped_column(Integer)
+    end_line: Mapped[int] = mapped_column(Integer)
+    part_number: Mapped[int] = mapped_column(Integer, default=1)
+    part_count: Mapped[int] = mapped_column(Integer, default=1)
+    content_hash: Mapped[str] = mapped_column(String(128), index=True)
+    exact_content: Mapped[str] = mapped_column(Text)
+    search_text: Mapped[str] = mapped_column(Text)
+    dense_embedding: Mapped[list[float] | None] = mapped_column(JSON)
+    chunk_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
 class AgentRun(UUIDPrimaryKeyMixin, TimestampMixin, Base):

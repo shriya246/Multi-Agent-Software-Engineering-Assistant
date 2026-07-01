@@ -40,4 +40,4 @@ The following settings are exposed with `CODEPILOT_` environment variables:
 
 ## Deferred
 
-Embeddings, symbol extraction, Qdrant writes, agent workflows, and sandboxed repository test execution are intentionally deferred to later phases.
+Parsing, symbol extraction, repository file persistence, code chunking, embedding-backed retrieval, agent workflows, and sandboxed repository test execution are intentionally deferred to later phases.

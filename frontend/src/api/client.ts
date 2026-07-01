@@ -125,6 +125,73 @@ export type AgentRunEvent = {
   created_at: string;
 };
 
+export type RepositoryIndexSnapshot = {
+  id: string;
+  revision_id: string;
+  commit_sha: string;
+  status: string;
+  embedding_model: string;
+  embedding_dimensions: number;
+  statistics: Record<string, unknown>;
+  indexed_at: string | null;
+  error_code: string | null;
+  error_summary: string | null;
+};
+
+export type RepositoryIndexStatus = {
+  repository_id: string;
+  latest_revision_id: string | null;
+  latest_indexed_revision_id: string | null;
+  status: string;
+  snapshot: RepositoryIndexSnapshot | null;
+  ready_snapshot_id: string | null;
+};
+
+export type RepositoryIndexResponse = {
+  run_id: string;
+  repository_id: string;
+};
+
+export type RepositorySymbol = {
+  id: string;
+  file_id: string;
+  revision_id: string;
+  normalized_path: string;
+  language: string | null;
+  symbol_type: string;
+  name: string;
+  qualified_name: string;
+  start_line: number;
+  end_line: number;
+  signature: string | null;
+  parent_symbol_id: string | null;
+  symbol_metadata: Record<string, unknown>;
+};
+
+export type RepositorySymbolListResponse = {
+  symbols: RepositorySymbol[];
+};
+
+export type SearchEvidence = {
+  path: string;
+  language: string | null;
+  start_line: number;
+  end_line: number;
+  symbol: string | null;
+  score: number;
+  retrieval_method: string;
+  exact_content: string;
+  revision_id: string;
+  commit_sha: string;
+  symbol_type: string;
+  qualified_name: string | null;
+  chunk_id: string;
+};
+
+export type RepositorySearchResponse = {
+  evidence: SearchEvidence[];
+};
+
 export function listRepositories() {
   return apiRequest<{ repositories: Repository[] }>("/repositories");
 }
@@ -159,6 +226,71 @@ export function deleteRepository(repositoryId: string) {
   return apiRequest<Repository>(`/repositories/${repositoryId}`, {
     method: "DELETE"
   });
+}
+
+export function indexRepository(repositoryId: string) {
+  return apiRequest<RepositoryIndexResponse>(
+    `/repositories/${repositoryId}/index`,
+    {
+      method: "POST"
+    }
+  );
+}
+
+export function getRepositoryIndexStatus(repositoryId: string) {
+  return apiRequest<RepositoryIndexStatus>(
+    `/repositories/${repositoryId}/index-status`
+  );
+}
+
+type RepositorySymbolFilters = {
+  revisionId?: string;
+  symbolType?: string;
+  name?: string;
+  path?: string;
+  limit?: number;
+  offset?: number;
+};
+
+export function listRepositorySymbols(
+  repositoryId: string,
+  filters: RepositorySymbolFilters = {}
+) {
+  const params = new URLSearchParams();
+  if (filters.revisionId) params.set("revision_id", filters.revisionId);
+  if (filters.symbolType) params.set("symbol_type", filters.symbolType);
+  if (filters.name) params.set("name", filters.name);
+  if (filters.path) params.set("path", filters.path);
+  if (filters.limit !== undefined) params.set("limit", String(filters.limit));
+  if (filters.offset !== undefined) params.set("offset", String(filters.offset));
+  const query = params.toString();
+  return apiRequest<RepositorySymbolListResponse>(
+    `/repositories/${repositoryId}/symbols${query ? `?${query}` : ""}`
+  );
+}
+
+type RepositorySearchFilters = {
+  revisionId?: string;
+  pathPrefix?: string;
+  language?: string;
+  topK?: number;
+  method?: "dense" | "lexical" | "hybrid";
+};
+
+export function searchRepository(
+  repositoryId: string,
+  query: string,
+  filters: RepositorySearchFilters = {}
+) {
+  const params = new URLSearchParams({ q: query });
+  if (filters.revisionId) params.set("revision_id", filters.revisionId);
+  if (filters.pathPrefix) params.set("path_prefix", filters.pathPrefix);
+  if (filters.language) params.set("language", filters.language);
+  if (filters.topK !== undefined) params.set("top_k", String(filters.topK));
+  if (filters.method) params.set("method", filters.method);
+  return apiRequest<RepositorySearchResponse>(
+    `/repositories/${repositoryId}/search?${params.toString()}`
+  );
 }
 
 export function listRepositoryFiles(repositoryId: string) {

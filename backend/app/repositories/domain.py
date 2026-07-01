@@ -12,9 +12,11 @@ from app.models.domain import (
     Artifact,
     AuditLog,
     CodeSymbol,
+    CodeChunk,
     Patch,
     RefreshToken,
     Repository,
+    RepositoryIndexSnapshot,
     RepositoryFile,
     RepositoryRevision,
     TestExecution,
@@ -93,14 +95,18 @@ class AgentRunRepository(BaseRepository):
         )
         return list(result.all())
 
-    async def active_for_repository(self, repository_id: UUID) -> AgentRun | None:
+    async def active_for_repository(
+        self, repository_id: UUID, *, run_type: str | None = None
+    ) -> AgentRun | None:
+        predicates = [
+            AgentRun.repository_id == repository_id,
+            AgentRun.status.in_(("queued", "running")),
+        ]
+        if run_type is not None:
+            predicates.append(AgentRun.run_type == run_type)
         result = await self.session.execute(
             select(AgentRun)
-            .where(
-                AgentRun.repository_id == repository_id,
-                AgentRun.status.in_(("queued", "running")),
-                AgentRun.run_type == "repository_ingestion",
-            )
+            .where(*predicates)
             .order_by(AgentRun.created_at.desc())
         )
         return result.scalars().first()
@@ -163,14 +169,74 @@ class RepositoryFileRepository(BaseRepository):
                     line_count=item.line_count,
                     indexing_status=item.indexing_status,
                     excluded_reason=item.excluded_reason,
+                    content=item.content,
                 )
             )
+
+    async def by_revision_path(self, revision_id: UUID, normalized_path: str) -> RepositoryFile | None:
+        result = await self.session.execute(
+            select(RepositoryFile).where(
+                RepositoryFile.revision_id == revision_id,
+                RepositoryFile.normalized_path == normalized_path,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def accepted_for_revision(self, revision_id: UUID) -> list[RepositoryFile]:
+        result = await self.session.scalars(
+            select(RepositoryFile)
+            .where(
+                RepositoryFile.revision_id == revision_id,
+                RepositoryFile.indexing_status == "accepted",
+            )
+            .order_by(RepositoryFile.normalized_path)
+        )
+        return list(result.all())
 
 
 class CodeSymbolRepository(BaseRepository):
     async def for_file(self, file_id: UUID) -> list[CodeSymbol]:
         result = await self.session.scalars(select(CodeSymbol).where(CodeSymbol.file_id == file_id))
         return list(result.all())
+
+    async def delete_for_file_ids(self, file_ids: list[UUID]) -> None:
+        if not file_ids:
+            return
+        await self.session.execute(delete(CodeSymbol).where(CodeSymbol.file_id.in_(file_ids)))
+
+    async def for_repository_revision(
+        self,
+        repository_id: UUID,
+        revision_id: UUID,
+        *,
+        symbol_type: str | None = None,
+        name_query: str | None = None,
+        normalized_path: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[tuple[CodeSymbol, RepositoryFile]]:
+        stmt = (
+            select(CodeSymbol, RepositoryFile)
+            .join(RepositoryFile, CodeSymbol.file_id == RepositoryFile.id)
+            .join(RepositoryRevision, RepositoryFile.revision_id == RepositoryRevision.id)
+            .where(
+                RepositoryFile.revision_id == revision_id,
+                RepositoryRevision.repository_id == repository_id,
+            )
+        )
+        if symbol_type is not None:
+            stmt = stmt.where(CodeSymbol.symbol_type == symbol_type)
+        if name_query is not None:
+            stmt = stmt.where(CodeSymbol.name.ilike(f"%{name_query}%"))
+        if normalized_path is not None:
+            stmt = stmt.where(RepositoryFile.normalized_path == normalized_path)
+        stmt = stmt.order_by(RepositoryFile.normalized_path, CodeSymbol.start_line)
+        if offset:
+            stmt = stmt.offset(offset)
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        result = await self.session.execute(stmt)
+        return [(symbol, file) for symbol, file in result.all()]
 
 
 class AgentRunEventRepository(BaseRepository):
@@ -229,3 +295,86 @@ class AuditLogRepository(BaseRepository):
         self.session.add(audit_log)
         await self.session.flush()
         return audit_log
+
+
+class RepositoryIndexSnapshotRepository(BaseRepository):
+    async def latest_for_repository(self, repository_id: UUID) -> RepositoryIndexSnapshot | None:
+        result = await self.session.execute(
+            select(RepositoryIndexSnapshot)
+            .where(RepositoryIndexSnapshot.repository_id == repository_id)
+            .order_by(RepositoryIndexSnapshot.created_at.desc())
+        )
+        return result.scalar_one_or_none()
+
+    async def latest_ready_for_repository(
+        self, repository_id: UUID
+    ) -> RepositoryIndexSnapshot | None:
+        result = await self.session.execute(
+            select(RepositoryIndexSnapshot)
+            .where(
+                RepositoryIndexSnapshot.repository_id == repository_id,
+                RepositoryIndexSnapshot.status == "ready",
+            )
+            .order_by(RepositoryIndexSnapshot.indexed_at.desc().nullslast())
+        )
+        return result.scalar_one_or_none()
+
+    async def by_revision(
+        self, repository_id: UUID, revision_id: UUID
+    ) -> RepositoryIndexSnapshot | None:
+        result = await self.session.execute(
+            select(RepositoryIndexSnapshot).where(
+                RepositoryIndexSnapshot.repository_id == repository_id,
+                RepositoryIndexSnapshot.revision_id == revision_id,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def add(self, snapshot: RepositoryIndexSnapshot) -> RepositoryIndexSnapshot:
+        self.session.add(snapshot)
+        await self.session.flush()
+        return snapshot
+
+
+class CodeChunkRepository(BaseRepository):
+    async def delete_for_repository(self, repository_id: UUID) -> None:
+        await self.session.execute(delete(CodeChunk).where(CodeChunk.repository_id == repository_id))
+
+    async def delete_for_snapshot(self, snapshot_id: UUID) -> None:
+        await self.session.execute(delete(CodeChunk).where(CodeChunk.snapshot_id == snapshot_id))
+
+    async def add_all(self, chunks: list[CodeChunk]) -> list[CodeChunk]:
+        for chunk in chunks:
+            self.session.add(chunk)
+        await self.session.flush()
+        return chunks
+
+    async def for_snapshot(self, snapshot_id: UUID) -> list[CodeChunk]:
+        result = await self.session.scalars(
+            select(CodeChunk).where(CodeChunk.snapshot_id == snapshot_id).order_by(
+                CodeChunk.normalized_path,
+                CodeChunk.start_line,
+                CodeChunk.part_number,
+            )
+        )
+        return list(result.all())
+
+    async def for_repository_revision(
+        self,
+        repository_id: UUID,
+        revision_id: UUID,
+        *,
+        path_prefix: str | None = None,
+        language: str | None = None,
+    ) -> list[CodeChunk]:
+        stmt = select(CodeChunk).where(
+            CodeChunk.repository_id == repository_id,
+            CodeChunk.revision_id == revision_id,
+        )
+        if path_prefix is not None:
+            stmt = stmt.where(CodeChunk.normalized_path.ilike(f"{path_prefix}%"))
+        if language is not None:
+            stmt = stmt.where(CodeChunk.language == language)
+        stmt = stmt.order_by(CodeChunk.normalized_path, CodeChunk.start_line, CodeChunk.part_number)
+        result = await self.session.scalars(stmt)
+        return list(result.all())

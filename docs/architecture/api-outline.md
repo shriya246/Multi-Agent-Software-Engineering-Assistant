@@ -84,7 +84,11 @@ Deletes or archives a repository record and schedules cleanup of associated loca
 
 Starts or restarts indexing for the repository.
 
-Planned response: indexing run identifier.
+Planned response: indexing run identifier and repository identifier.
+
+### GET /api/v1/repositories/{repository_id}/index-status
+
+Returns the latest repository indexing snapshot, the latest indexed revision, and summary statistics for the dashboard.
 
 ### GET /api/v1/repositories/{repository_id}/files
 
@@ -97,6 +101,12 @@ Planned query fields: revision, path prefix, language, pagination.
 Lists indexed symbols for a repository.
 
 Planned query fields: revision, symbol kind, name query, file path, pagination.
+
+### GET /api/v1/repositories/{repository_id}/search
+
+Searches indexed code chunks for a repository using lexical, dense, or hybrid ranking.
+
+Planned query fields: query string, revision, path prefix, language, top K, and retrieval method.
 
 ## Agent Runs
 
